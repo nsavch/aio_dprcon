@@ -4,13 +4,13 @@ import time
 from contextlib import contextmanager
 
 from .exceptions import RconCommandFailed
-from .parser import CombinedParser, StatusItemParser, CvarParser
+from .parser import CombinedParser, StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser
 from .protocol import create_rcon_protocol, RCON_NOSECURE
 
-__all__ = ['BaseRconClient']
+__all__ = ['RconClient']
 
 
-class BaseRconClient:
+class RconClient:
     def __init__(self, loop, remote_host, remote_port, password=None, secure=RCON_NOSECURE,
                  poll_status_interval=6, log_listener_ip=None):
         self.loop = loop
@@ -27,8 +27,11 @@ class BaseRconClient:
         self.log_timestamp = 0
         self.admin_nick = ''
         self.log_parser = CombinedParser(self, dump_to=sys.stdout.buffer)
-        self.cmd_parser = CombinedParser(self, parsers=[StatusItemParser, CvarParser])
+        self.cmd_parser = CombinedParser(
+            self, parsers=[StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser])
         self.connected = False
+        self.pause_cmd_parser = False
+        self.completions = {'cvar': {}, 'alias': {}, 'command': {}}
 
     def check_connection(self, timeout=60):
         if self.log_listener_ip:
@@ -105,31 +108,48 @@ class BaseRconClient:
     def send(self, command):
         self.cmd_protocol.send(command)
 
-    def cmd_data_received(self, data, addr):
+    def verify_data(self, data, addr):
         # TODO: resolve self.remote host to IP
         if addr[0] != self.remote_host or addr[1] != self.remote_port:
+            return False
+        else:
+            return True
+
+    def cmd_data_received(self, data, addr):
+        if not self.verify_data(data, addr):
             return
         self.cmd_timestamp = time.time()
-        self.cmd_parser.feed(data)
+        if not self.pause_cmd_parser:
+            self.cmd_parser.feed(data)
+        else:
+            sys.stdout.buffer.write(data)
+            sys.stdout.buffer.flush()
 
     def log_data_received(self, data, addr):
-        if addr[0] != self.remote_host or addr[1] != self.remote_port:
+        if not self.verify_data(data, addr):
             return
         self.log_timestamp = time.time()
         self.log_parser.feed(data)
 
-    async def execute(self, command, timeout=1):
-        self.cmd_parser.dump_to = sys.stdout.buffer
-        self.send(command)
-        asyncio.sleep(timeout)
-        self.cmd_parser.dump_to = None
+    async def load_completions(self):
+        await self.execute_with_retry(
+            'apropos *',
+            lambda: self.completions['cvar'] and self.completions['alias'] and self.completions['command'],
+            timeout=6, sleep=1)
+        print('Loaded %s cvars, %s aliases and %s commands' % (len(self.completions['cvar']),
+                                                               len(self.completions['alias']),
+                                                               len(self.completions['command'])))
 
-    async def execute_with_retry(self, command, condition, retries=3, timeout=3):
+    async def execute(self, command, timeout=1):
+        self.send(command)
+        await asyncio.sleep(timeout)
+
+    async def execute_with_retry(self, command, condition, retries=3, timeout=3, sleep=0.1):
         self.send(command)
         t = time.time()
         interval = timeout / retries
         while not condition() and retries > 0:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(sleep)
             if time.time() - t > interval:
                 self.send(command)
                 retries -= 1

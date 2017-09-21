@@ -149,3 +149,22 @@ class CvarParser(BaseOneLineRegexParser):
         self.rcon_server.cvars[data.group(1).decode('utf8')] = data.group(2).decode('utf8')
         logger.debug('Set cvar %s to %r', data.group(1).decode('utf8'), data.group(2).decode('utf8'))
 
+
+class AproposCvarParser(BaseOneLineRegexParser):
+    regex = re.compile(rb'^cvar \^3(\w+)\^7 is "([^"]*)"')
+
+    def process(self, data):
+        var = data.group(1).decode('utf8')
+        val = data.group(1).decode('utf8')
+        self.rcon_server.completions['cvar'][var] = val
+
+
+class AproposAliasCommandParser(BaseOneLineRegexParser):
+    regex = re.compile(rb'^(alias|command) \^[25](\w+)\^7: (.*)')
+
+    def process(self, data):
+        type_ = data.group(1).decode('utf8')
+        name = data.group(2).decode('utf8')
+        description = data.group(3).decode()
+        self.rcon_server.completions[type_][name] = description
+
