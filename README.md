@@ -15,9 +15,6 @@ To use the console tool on windows please also install pyreadline
 $ pip install pyreadline
 ```
 
-Note, that windows cmd doesn't support ANSI color codes. You can use [MinTTY](https://mintty.github.io/) instead
-
-
 ## Console tool usage
 
 ```bash

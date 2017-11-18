@@ -157,3 +157,5 @@ class RconClient:
                 self.send(command)
                 retries -= 1
                 t = time.time()
+        if not condition():
+            raise RconCommandFailed('Retry number exceeded')

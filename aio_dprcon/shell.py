@@ -75,8 +75,7 @@ class RconShell(cmd.Cmd):
                 return
             self.loop.run_until_complete(self.client.execute(line, timeout=1))
             cs = dpcolors.ColorString.from_dp(self.data)
-            sys.stdout.buffer.write(cs.to_ansi_8bit())
-            sys.stdout.flush()
+            click.echo(cs.to_ansi_8bit().decode('utf8'), nl=False)
             self.data = b''
 
     def complete(self, text, state):
