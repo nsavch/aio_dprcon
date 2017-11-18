@@ -1,10 +1,10 @@
 import asyncio
+import sys
 
 import click
 
 from .config import Config, ServerConfigItem
 from .shell import RconShell
-from .client import RconClient
 
 
 @click.group()
@@ -15,7 +15,8 @@ def cli():
 
 
 @cli.command()
-def servers():
+@click.pass_context
+def servers(ctx):
     """
     Lists servers
     """
@@ -25,7 +26,7 @@ def servers():
         for server in config.servers.values():
             click.echo('  * {0.name}: {0.host}:{0.port}'.format(server))
     else:
-        click.secho('No servers defined. Use "aio_dprcon add" to add a server', fg='red', bold=True)
+        click.secho('No servers defined. Use "{} add" to add a server'.format(ctx.parent.command_path), fg='red', bold=True)
 
 
 @cli.command()

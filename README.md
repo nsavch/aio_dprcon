@@ -9,6 +9,14 @@ A library and console client for DarkPlaces RCON protocol
 $ pip install aio-dprcon
 ```
 
+To use the console tool on windows please also install pyreadline
+
+```bash
+$ pip install pyreadline
+```
+
+Note, that windows cmd doesn't support ANSI color codes. You can use [MinTTY](https://mintty.github.io/) instead
+
 
 ## Console tool usage
 
