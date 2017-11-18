@@ -29,8 +29,9 @@ class RconClient:
         self.log_parser = CombinedParser(self, dump_to=sys.stdout.buffer)
         self.cmd_parser = CombinedParser(
             self, parsers=[StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser])
+        self.custom_cmd_callback = None
+        self.custom_log_callback = None
         self.connected = False
-        self.pause_cmd_parser = False
         self.completions = {'cvar': {}, 'alias': {}, 'command': {}}
 
     def check_connection(self, timeout=60):
@@ -119,16 +120,16 @@ class RconClient:
         if not self.verify_data(data, addr):
             return
         self.cmd_timestamp = time.time()
-        if not self.pause_cmd_parser:
-            self.cmd_parser.feed(data)
-        else:
-            sys.stdout.buffer.write(data)
-            sys.stdout.buffer.flush()
+        if self.custom_cmd_callback:
+            self.custom_cmd_callback(data, addr)
+        self.cmd_parser.feed(data)
 
     def log_data_received(self, data, addr):
         if not self.verify_data(data, addr):
             return
         self.log_timestamp = time.time()
+        if self.custom_log_callback:
+            self.custom_log_callback(data, addr)
         self.log_parser.feed(data)
 
     async def load_completions(self):

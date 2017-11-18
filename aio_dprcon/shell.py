@@ -1,5 +1,8 @@
 
 import cmd
+import sys
+
+import dpcolors
 
 
 class RconShell(cmd.Cmd):
@@ -8,15 +11,22 @@ class RconShell(cmd.Cmd):
         self.client = rcon_client
         self.loop = self.client.loop
         self.completion_matches = []
+        self.data = b''
+
+    def data_cb(self, data, addr):
+        self.data += data
 
     def preloop(self):
         self.loop.run_until_complete(self.client.connect_once())
-        self.loop.run_until_complete(self.client.load_completions())
-        self.client.pause_cmd_parser = True
+        self.client.custom_cmd_callback = self.data_cb
 
     def onecmd(self, line):
         if line:
             self.loop.run_until_complete(self.client.execute(line, timeout=1))
+            cs = dpcolors.ColorString.from_dp(self.data)
+            sys.stdout.buffer.write(cs.to_ansi_8bit())
+            sys.stdout.flush()
+            self.data = b''
 
     def complete(self, text, state):
         if state == 0:

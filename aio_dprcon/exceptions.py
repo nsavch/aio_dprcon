@@ -12,3 +12,7 @@ class RconCommandTimeout(RconCommandFailed):
 
 class RconCommandRetryNumberExceeded(RconCommandFailed):
     pass
+
+
+class InvalidConfigException(Exception):
+    pass

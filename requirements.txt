@@ -1,0 +1,5 @@
+python-dpcolors
+pytest
+pytest-cov
+click
+pyyaml
