@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 
-setup(name='python-aio-dprcon',
+setup(name='aio-dprcon',
       version='0.1.0',
       description='library and console client for DarkPlaces RCON protocol',
       long_description=open('README.md').read(),
@@ -13,7 +13,10 @@ setup(name='python-aio-dprcon',
       keywords='xonotic',
       install_requires=[
           'setuptools',
-          'click==6.7'
+          'click',
+          'colorama',
+          'python-dpcolors',
+          'PyYAML'
       ],
       classifiers=[
           'Development Status :: 4 - Beta',
