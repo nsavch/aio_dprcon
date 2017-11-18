@@ -1,9 +1,11 @@
+import json
 import os
 import re
 
 import yaml
 
 from .exceptions import InvalidConfigException
+
 
 # ServerConfigItem = namedtuple('ServerConfigItem', 'name,host,port,secure,password')
 
@@ -22,6 +24,22 @@ class ServerConfigItem:
         for k, v in fields.items():
             setattr(self, k, v)
         self.validate_secure()
+
+    def get_completion_cache_path(self):
+        return os.path.expanduser('~/.config/aio_dprcon/completions.{}'.format(self.name))
+
+    def update_completions(self, completions):
+        path = self.get_completion_cache_path()
+        with open(path, 'w') as f:
+            f.write(json.dumps(completions))
+
+    def load_completions(self):
+        path = self.get_completion_cache_path()
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                return json.loads(f.read())
+        else:
+            return None
 
     def validate_secure(self):
         if self.secure != 0 and not self.password:

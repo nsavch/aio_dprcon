@@ -2,7 +2,12 @@
 import cmd
 import sys
 
+import colorama
+import click
 import dpcolors
+
+
+# TODO: connection activity indicator
 
 
 class RconShell(cmd.Cmd):
@@ -18,12 +23,20 @@ class RconShell(cmd.Cmd):
 
     def preloop(self):
         self.loop.run_until_complete(self.client.connect_once())
+        if not self.client.connected:
+            click.echo('Could not connect to server.', color='red')
+            sys.exit(1)
+        self.prompt = '{}{}{}{} > '.format(colorama.Fore.GREEN,
+                                           colorama.Style.BRIGHT,
+                                           self.client.status['host'],
+                                           colorama.Style.RESET_ALL)
         self.client.custom_cmd_callback = self.data_cb
 
     def onecmd(self, line):
         if line:
             self.loop.run_until_complete(self.client.execute(line, timeout=1))
             cs = dpcolors.ColorString.from_dp(self.data)
+            print(cs.to_ansi_8bit())
             sys.stdout.buffer.write(cs.to_ansi_8bit())
             sys.stdout.flush()
             self.data = b''

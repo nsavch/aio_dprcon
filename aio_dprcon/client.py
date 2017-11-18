@@ -62,6 +62,8 @@ class RconClient:
     async def connect_once(self, connect_log=False):
         self.cmd_transport, self.cmd_protocol = await self._connect(self.cmd_data_received)
         status = await self.update_server_status()
+        if status:
+            self.connected = True
         if connect_log and status:
             self.log_transport, self.log_protocol = await self._connect(self.log_data_received)
             self.subscribe_to_log()
@@ -136,10 +138,10 @@ class RconClient:
         await self.execute_with_retry(
             'apropos *',
             lambda: self.completions['cvar'] and self.completions['alias'] and self.completions['command'],
-            timeout=6, sleep=1)
-        print('Loaded %s cvars, %s aliases and %s commands' % (len(self.completions['cvar']),
-                                                               len(self.completions['alias']),
-                                                               len(self.completions['command'])))
+            timeout=10, sleep=1)
+        print('Loaded completion for %s cvars, %s aliases and %s commands' % (len(self.completions['cvar']),
+                                                                              len(self.completions['alias']),
+                                                                              len(self.completions['command'])))
 
     async def execute(self, command, timeout=1):
         self.send(command)

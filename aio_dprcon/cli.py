@@ -43,10 +43,30 @@ def remove():
 def connect(server_name):
     config = Config.load()
     server = config.get_server(server_name)
+    completions = server.load_completions()
     rcon_client = RconClient(asyncio.get_event_loop(),
                              server.host,
                              server.port,
                              password=server.password,
                              secure=server.secure)
+    if completions:
+        rcon_client.completions = completions
     shell = RconShell(rcon_client)
     shell.cmdloop()
+
+
+@cli.command()
+@click.argument('server_name')
+def refresh(server_name):
+    config = Config.load()
+    server = config.get_server(server_name)
+    loop = asyncio.get_event_loop()
+    rcon_client = RconClient(loop,
+                             server.host,
+                             server.port,
+                             password=server.password,
+                             secure=server.secure)
+    loop.run_until_complete(rcon_client.connect_once())
+    loop.run_until_complete(rcon_client.load_completions())
+    server.update_completions(rcon_client.completions)
+
