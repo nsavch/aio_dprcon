@@ -2,8 +2,10 @@ import json
 import os
 import re
 
+import asyncio
 import yaml
 
+from aio_dprcon.client import RconClient
 from .exceptions import InvalidConfigException
 
 
@@ -13,17 +15,16 @@ from .exceptions import InvalidConfigException
 class ServerConfigItem:
     fields = [
         # field_name, required, validation_regexp, type, description
-        ('name', True, re.compile('.{1,32}'), str, 'Server name'),
-        ('host', True, None, str, 'Server host (domain name or IP)'),
-        ('port', True, re.compile('\d+'), int, 'Server port'),
-        ('secure', True, re.compile('[012]'), int, 'Rcon security mode (0, 1, 2)'),
-        ('password', False, None, str, 'Rcon password')
+        ('name', re.compile('\w{1,32}'), str, 'Server name'),
+        ('host', None, str, 'Server host (domain name or IP)'),
+        ('port', re.compile('\d+'), int, 'Server port'),
+        ('secure', re.compile('[012]'), int, 'Rcon security mode (0, 1, 2)'),
+        ('password', None, str, 'Rcon password')
     ]
 
     def __init__(self, **fields):
         for k, v in fields.items():
             setattr(self, k, v)
-        self.validate_secure()
 
     def get_completion_cache_path(self):
         return os.path.expanduser('~/.config/aio_dprcon/completions.{}'.format(self.name))
@@ -41,24 +42,17 @@ class ServerConfigItem:
         else:
             return None
 
-    def validate_secure(self):
-        if self.secure != 0 and not self.password:
-            raise InvalidConfigException('No password specified when security mode is {}'.format(self.secure))
-
     @classmethod
-    def from_dict(cls, d):
-        field_dict = {}
-        for field in cls.fields:
+    def from_dict(cls, name, d):
+        field_dict = {'name': name}
+        for field in cls.fields[1:]:
             if field[0] not in d:
-                if field[1]:
-                    raise InvalidConfigException('Required attribute missing: {}'.format(field[0]))
-                else:
-                    field_dict[field[0]] = ''
+                raise InvalidConfigException('Required attribute missing: {}'.format(field[0]))
             else:
                 value = str(d[field[0]])
-                if field[2] and not field[2].match(value):
+                if field[1] and not field[1].match(value):
                     raise InvalidConfigException('Field value is invalid: {}'.format(field[0]))
-                field_dict[field[0]] = field[3](value)
+                field_dict[field[0]] = field[2](value)
         return cls(**field_dict)
 
     @classmethod
@@ -68,28 +62,29 @@ class ServerConfigItem:
             while True:
                 value = input('{}: '.format(field[-1]))
                 if not value:
-                    if field[1]:
-                        print('Please enter a value')
-                        continue
-                    else:
-                        field_dict[field[0]] = ''
-                        break
+                    print('Please enter a value')
                 else:
-                    if field[2] and not field[2].match(value):
+                    if field[1] and not field[1].match(value):
                         print('Invalid value')
-                        continue
                     else:
-                        field_dict[field[0]] = field[3](value)
+                        field_dict[field[0]] = field[2](value)
                         break
         return cls(**field_dict)
 
     def to_dict(self):
-        return dict([(field[0], getattr(self, field[0])) for field in self.fields])
+        return dict([(field[0], getattr(self, field[0])) for field in self.fields[1:]])
+
+    def get_client(self, loop=None):
+        return RconClient(loop or asyncio.get_event_loop(),
+                          self.host,
+                          self.port,
+                          password=self.password,
+                          secure=self.secure)
 
 
 class Config:
     def __init__(self):
-        self.servers = []
+        self.servers = {}
 
     @staticmethod
     def get_path():
@@ -112,7 +107,7 @@ class Config:
             else:
                 os.mkdir(cur)
         with open(path, 'w') as f:
-            f.write(yaml.dump({'servers': []}))
+            f.write(yaml.dump({'servers': {}}))
         os.chmod(path, 0o600)
 
     @classmethod
@@ -124,16 +119,15 @@ class Config:
             with open(path, 'r') as f:
                 data = yaml.load(f.read())
             instance = cls()
-            instance.servers = []
-            for server in data['servers']:
-                instance.servers.append(ServerConfigItem.from_dict(server))
+            for name, server in data['servers'].items():
+                instance.servers[name] = ServerConfigItem.from_dict(name, server)
             return instance
         except (IOError, OSError, KeyError):
             raise InvalidConfigException('Could not open config file: {}'.format(path))
 
     def save(self):
         path = self.get_path()
-        contents = yaml.dump({'servers': [i.to_dict() for i in self.servers]})
+        contents = yaml.dump({'servers': dict([(name, server.to_dict()) for name, server in self.servers.items()])})
         try:
             with open(path, 'w') as f:
                 f.write(contents)
@@ -141,13 +135,17 @@ class Config:
             raise InvalidConfigException('Could not write config file: {}'.format(path))
 
     def add_server(self, server):
-        for i in self.servers:
-            if i.name == server.name:
-                raise InvalidConfigException('Server {} already exists'.format(server.name))
-        self.servers.append(server)
+        if server.name in self.servers:
+            raise InvalidConfigException('Server {} already exists'.format(server.name))
+        self.servers[server.name] = server
+
+    def remove_server(self, server_name):
+        if server_name not in self.servers:
+            raise InvalidConfigException('Server {} does not exist'.format(server_name))
+        del self.servers[server_name]
 
     def get_server(self, server_name):
-        for i in self.servers:
-            if i.name == server_name:
-                return i
-        raise InvalidConfigException('No server {} defined'.format(server_name))
+        try:
+            return self.servers[server_name]
+        except KeyError:
+            raise InvalidConfigException('No server {} defined'.format(server_name))

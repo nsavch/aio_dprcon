@@ -155,7 +155,7 @@ class AproposCvarParser(BaseOneLineRegexParser):
 
     def process(self, data):
         var = data.group(1).decode('utf8')
-        val = data.group(1).decode('utf8')
+        val = data.group(2).decode('utf8')
         self.rcon_server.completions['cvar'][var] = val
 
 

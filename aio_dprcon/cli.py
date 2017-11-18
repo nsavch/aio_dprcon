@@ -16,17 +16,23 @@ def cli():
 
 @cli.command()
 def servers():
+    """
+    Lists servers
+    """
     config = Config.load()
     if config.servers:
-        print('Servers:')
-        for i in config.servers:
-            print('  * {0.name}: {0.host}:{0.port}'.format(i))
+        click.secho('Servers:', fg='green', bold=True)
+        for server in config.servers.values():
+            click.echo('  * {0.name}: {0.host}:{0.port}'.format(server))
     else:
-        print('No servers defined. Use "aio_dprcon add" to add a server')
+        click.secho('No servers defined. Use "aio_dprcon add" to add a server', fg='red', bold=True)
 
 
 @cli.command()
 def add():
+    """
+    Add a server (interactively)
+    """
     config = Config.load()
     server = ServerConfigItem.from_input()
     config.add_server(server)
@@ -34,38 +40,45 @@ def add():
 
 
 @cli.command()
-def remove():
-    pass
+@click.argument('server_name')
+def remove(server_name):
+    """
+    Remove a server SERVER_NAME
+    """
+    config = Config.load()
+    server = config.get_server(server_name)
+    confirm = input('Are you sure to remove {0.name}: {0.host}:{0.port}? (y/N): '.format(server))
+    if confirm[0] in ('y', 'Y'):
+        config.remove_server(server_name)
+        config.save()
 
 
 @cli.command()
 @click.argument('server_name')
 def connect(server_name):
+    """
+    Connect to a server SERVER_NAME
+    """
     config = Config.load()
     server = config.get_server(server_name)
     completions = server.load_completions()
-    rcon_client = RconClient(asyncio.get_event_loop(),
-                             server.host,
-                             server.port,
-                             password=server.password,
-                             secure=server.secure)
+    rcon_client = server.get_client()
     if completions:
         rcon_client.completions = completions
-    shell = RconShell(rcon_client)
+    shell = RconShell(server, rcon_client)
     shell.cmdloop()
 
 
 @cli.command()
 @click.argument('server_name')
 def refresh(server_name):
+    """
+    Refresh completions cache for SERVER_NAME
+    """
     config = Config.load()
     server = config.get_server(server_name)
     loop = asyncio.get_event_loop()
-    rcon_client = RconClient(loop,
-                             server.host,
-                             server.port,
-                             password=server.password,
-                             secure=server.secure)
+    rcon_client = server.get_client(loop)
     loop.run_until_complete(rcon_client.connect_once())
     loop.run_until_complete(rcon_client.load_completions())
     server.update_completions(rcon_client.completions)
