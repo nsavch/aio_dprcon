@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 setup(name='aio-dprcon',
-      version='0.1.0',
+      version='0.1.1',
       description='library and console client for DarkPlaces RCON protocol',
       long_description=open('README.md').read(),
       url='https://github.com/nsavch/aio_dprcon',
