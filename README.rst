@@ -1,7 +1,7 @@
 aio-dprcon
 ==========
 
-A library and console client for DarkPlaces RCON protocol
+TEST A library and console client for DarkPlaces RCON protocol
 
 Installation
 ------------
