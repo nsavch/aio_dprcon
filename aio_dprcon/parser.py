@@ -150,6 +150,30 @@ class CvarParser(BaseOneLineRegexParser):
         logger.debug('Set cvar %s to %r', data.group(1).decode('utf8'), data.group(2).decode('utf8'))
 
 
+class CvarListParser(BaseOneLineRegexParser):
+    regex = re.compile(rb'^(\S+) is')
+
+    def process(self, data):
+        var = data.group(1).decode('utf8')
+        self.rcon_server.completions['cvar'][var] = None
+
+
+class AliasListParser(BaseOneLineRegexParser):
+    regex = re.compile(rb'^(\S+) :')
+
+    def process(self, data):
+        name = data.group(1).decode('utf8')
+        self.rcon_server.completions['alias'][name] = None
+
+
+class CmdListParser(BaseOneLineRegexParser):
+    regex = re.compile(rb'^(\S+) :')
+
+    def process(self, data):
+        name = data.group(1).decode('utf8')
+        self.rcon_server.completions['command'][name] = None
+
+
 class AproposCvarParser(BaseOneLineRegexParser):
     regex = re.compile(rb'^cvar \^\d(\w+)\^\d is "([^"]*)"')
 

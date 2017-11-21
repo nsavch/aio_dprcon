@@ -1,13 +1,14 @@
 import asyncio
+import string
 import sys
 import time
 from contextlib import contextmanager
 
-import string
+import click
 
 from .exceptions import RconCommandFailed
 from .parser import CombinedParser, StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser, \
-    ResultsParser
+    CvarListParser, AliasListParser, CmdListParser
 from .protocol import create_rcon_protocol, RCON_NOSECURE
 
 __all__ = ['RconClient']
@@ -32,7 +33,7 @@ class RconClient:
         self.log_parser = CombinedParser(self, dump_to=sys.stdout.buffer)
         self.cmd_parser = CombinedParser(
             self, parsers=[StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser,
-                           ResultsParser])
+                           CvarListParser])
         self.custom_cmd_callback = None
         self.custom_log_callback = None
         self.connected = False
@@ -123,6 +124,7 @@ class RconClient:
             return True
 
     def cmd_data_received(self, data, addr):
+        # print(data)
         if not self.verify_data(data, addr):
             return
         self.cmd_timestamp = time.time()
@@ -139,16 +141,38 @@ class RconClient:
         self.log_parser.feed(data)
 
     async def load_completions(self):
-        counts = (0, 0, 0)
-        cycles = 5
+        def __print_stage(cur, tot=7):
+            click.secho('Retrieving completions ({}/{})'.format(cur, tot), fg='green', bold=True)
+        cycles = 1
+        additional_prefixes = ['g_', 'hud_', 'notification_', 'sv_']
+        __print_stage(1)
+        with click.progressbar(string.ascii_lowercase + '_') as seq:
+            for p1 in seq:
+                for _ in range(cycles):
+                    self.send('cvarlist {}'.format(p1))
+                    await asyncio.sleep(1)
+        for i, p1 in enumerate(additional_prefixes):
+            __print_stage(2 + i)
+            with click.progressbar(string.ascii_lowercase) as seq:
+                for p2 in seq:
+                    for _ in range(cycles):
+                        self.send('cvarlist {}{}'.format(p1, p2))
+                        await asyncio.sleep(1)
+        prev_parser = self.cmd_parser
+        __print_stage(5)
+        self.cmd_parser = CombinedParser(self, [AliasListParser])
         for _ in range(cycles):
-            self.send('apropos *')
-            await asyncio.sleep(10)
-            counts = (len(self.completions['cvar']),
-                      len(self.completions['alias']),
-                      len(self.completions['command']))
-            print(counts, sum(counts))
-
+            self.send('alias')
+            await asyncio.sleep(3)
+        __print_stage(6)
+        self.cmd_parser = CombinedParser(self, [CmdListParser])
+        for _ in range(cycles):
+            self.send('cmdlist')
+            await asyncio.sleep(3)
+        self.cmd_parser = prev_parser
+        counts = (len(self.completions['cvar']),
+                  len(self.completions['alias']),
+                  len(self.completions['command']))
         print('Loaded completion for %s cvars, %s aliases and %s commands' % counts)
         print('Total: %s completions' % sum(counts))
 
