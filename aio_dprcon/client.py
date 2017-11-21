@@ -3,8 +3,11 @@ import sys
 import time
 from contextlib import contextmanager
 
+import string
+
 from .exceptions import RconCommandFailed
-from .parser import CombinedParser, StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser
+from .parser import CombinedParser, StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser, \
+    ResultsParser
 from .protocol import create_rcon_protocol, RCON_NOSECURE
 
 __all__ = ['RconClient']
@@ -28,7 +31,8 @@ class RconClient:
         self.admin_nick = ''
         self.log_parser = CombinedParser(self, dump_to=sys.stdout.buffer)
         self.cmd_parser = CombinedParser(
-            self, parsers=[StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser])
+            self, parsers=[StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser,
+                           ResultsParser])
         self.custom_cmd_callback = None
         self.custom_log_callback = None
         self.connected = False
@@ -135,13 +139,18 @@ class RconClient:
         self.log_parser.feed(data)
 
     async def load_completions(self):
-        await self.execute_with_retry(
-            'apropos *',
-            lambda: self.completions['cvar'] and self.completions['alias'] and self.completions['command'],
-            timeout=10, sleep=1)
-        print('Loaded completion for %s cvars, %s aliases and %s commands' % (len(self.completions['cvar']),
-                                                                              len(self.completions['alias']),
-                                                                              len(self.completions['command'])))
+        counts = (0, 0, 0)
+        cycles = 5
+        for _ in range(cycles):
+            self.send('apropos *')
+            await asyncio.sleep(10)
+            counts = (len(self.completions['cvar']),
+                      len(self.completions['alias']),
+                      len(self.completions['command']))
+            print(counts, sum(counts))
+
+        print('Loaded completion for %s cvars, %s aliases and %s commands' % counts)
+        print('Total: %s completions' % sum(counts))
 
     async def execute(self, command, timeout=1):
         self.send(command)

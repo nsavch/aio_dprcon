@@ -51,7 +51,7 @@ def rcon_secure_time_packet(password, command):
     password = ensure_bytes(password)
     cur_time = time.time()
     key = hmac_md4(password, ensure_bytes("{time:6f} {command}"
-                   .format(time=cur_time, command=command))).digest()
+                                          .format(time=cur_time, command=command))).digest()
     return b''.join([
         QUAKE_PACKET_HEADER,
         b'srcon HMAC-MD4 TIME ',
@@ -62,7 +62,7 @@ def rcon_secure_time_packet(password, command):
 
 def parse_challenge_response(response):
     l = len(CHALLENGE_RESPONSE_HEADER)
-    return response[l:l+11]
+    return response[l:l + 11]
 
 
 def rcon_secure_challenge_packet(password, challenge, command):
@@ -83,8 +83,7 @@ def rcon_secure_challenge_packet(password, challenge, command):
 
 
 def parse_rcon_response(packet):
-    l = len(RCON_RESPONSE_HEADER)
-    return packet[l:]
+    return packet[len(RCON_RESPONSE_HEADER):]
 
 
 def create_rcon_protocol(password, secure,
@@ -123,4 +122,5 @@ def create_rcon_protocol(password, secure,
             elif secure == RCON_NOSECURE:
                 msg = rcon_nosecure_packet(password, command)
             self.transport.sendto(msg)
+
     return RconProtocol

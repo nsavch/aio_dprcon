@@ -151,7 +151,7 @@ class CvarParser(BaseOneLineRegexParser):
 
 
 class AproposCvarParser(BaseOneLineRegexParser):
-    regex = re.compile(rb'^cvar \^3(\w+)\^7 is "([^"]*)"')
+    regex = re.compile(rb'^cvar \^\d(\w+)\^\d is "([^"]*)"')
 
     def process(self, data):
         var = data.group(1).decode('utf8')
@@ -160,7 +160,7 @@ class AproposCvarParser(BaseOneLineRegexParser):
 
 
 class AproposAliasCommandParser(BaseOneLineRegexParser):
-    regex = re.compile(rb'^(alias|command) \^[25](\w+)\^7: (.*)')
+    regex = re.compile(rb'^(alias|command) \^\d(\w+)\^\d: (.*)')
 
     def process(self, data):
         type_ = data.group(1).decode('utf8')
@@ -168,3 +168,9 @@ class AproposAliasCommandParser(BaseOneLineRegexParser):
         description = data.group(3).decode()
         self.rcon_server.completions[type_][name] = description
 
+
+class ResultsParser(BaseOneLineRegexParser):
+    regex = re.compile(rb'^\d+ results$')
+
+    def process(self, data):
+        print(data.group(0))
