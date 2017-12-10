@@ -1,7 +1,6 @@
 import asyncio
 import hashlib
 import hmac
-import re
 
 import time
 
@@ -16,13 +15,6 @@ PING_Q3_PACKET = b'ping'
 PONG_Q3_PACKET = QUAKE_PACKET_HEADER + b'disconnect'
 QUAKE_STATUS_PACKET = QUAKE_PACKET_HEADER + b'getstatus'
 STATUS_RESPONSE_HEADER = QUAKE_PACKET_HEADER + b'statusResponse\n'
-ADDR_STR_RE = re.compile(r"""
-    ^(?:
-        (?P<host>[^:]+)               # ipv4 address or host name
-        |\[(?P<host6>[a-zA-Z0-9:]+)\] # ipv6 address in square brackets
-    )                                 # end of host part
-    (?::(?P<port>\d+))?$              # optional port part
-    """, re.VERBOSE)
 
 RCON_NOSECURE = 0
 RCON_SECURE_TIME = 1

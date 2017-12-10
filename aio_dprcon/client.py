@@ -69,6 +69,7 @@ class RconClient:
         status = await self.update_server_status()
         if status:
             self.connected = True
+            self.on_server_connected()
         if connect_log and status:
             self.log_transport, self.log_protocol = await self._connect(self.log_data_received)
             self.subscribe_to_log()
@@ -124,7 +125,6 @@ class RconClient:
             return True
 
     def cmd_data_received(self, data, addr):
-        # print(data)
         if not self.verify_data(data, addr):
             return
         self.cmd_timestamp = time.time()

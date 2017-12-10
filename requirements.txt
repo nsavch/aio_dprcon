@@ -4,3 +4,5 @@ pytest-cov
 click
 pyyaml
 colorama
+asynctest==0.11.1
+pytest-mock==1.6.3
