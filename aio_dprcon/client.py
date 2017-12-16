@@ -34,8 +34,6 @@ class RconClient:
         self.cmd_parser = CombinedParser(
             self, parsers=[StatusItemParser, CvarParser, AproposCvarParser, AproposAliasCommandParser,
                            CvarListParser])
-        self.custom_cmd_callback = None
-        self.custom_log_callback = None
         self.connected = False
         self.completions = {'cvar': {}, 'alias': {}, 'command': {}}
 
@@ -58,11 +56,9 @@ class RconClient:
                     self.connected = False
                     self.on_server_disconnected()
                 self.connected = await self.connect_once(connect_log)
-                if self.connected:
-                    self.on_server_connected()
             else:
                 await self.update_server_status()
-            asyncio.sleep(self.poll_status_interval)
+            await asyncio.sleep(self.poll_status_interval)
 
     async def connect_once(self, connect_log=False):
         self.cmd_transport, self.cmd_protocol = await self._connect(self.cmd_data_received)
@@ -82,7 +78,7 @@ class RconClient:
                                                         remote_addr=(self.remote_host, self.remote_port))
 
     def subscribe_to_log(self):
-        self.send("sv_cmd addtolist log_dest_udp %s:%s" % (self.log_protocol.local_host, self.log_protocol.local_port))
+        self.send("sv_cmd addtolist log_dest_udp %s:%s" % (self.log_listener_ip, self.log_protocol.local_port))
         self.send("sv_logscores_console 0")
         self.send("sv_logscores_bots 1")
         self.send("sv_eventlog 1")
@@ -91,7 +87,7 @@ class RconClient:
     async def cleanup_log_dest_udp(self):
         self.cvars['log_dest_udp'] = None
         try:
-            await self.execute_with_retry('log_dest_udp', lambda: self.cvars['log_dest_udp'] is None)
+            await self.execute_with_retry('log_dest_udp', lambda: self.cvars['log_dest_udp'] is not None)
         except RconCommandFailed:
             return
         for i in self.cvars['log_dest_udp'].split(' '):
@@ -109,7 +105,7 @@ class RconClient:
 
     @contextmanager
     def sv_adminnick(self, new_nick):
-        old_nick = self.cvars['sv_adminnick'] or ''
+        old_nick = self.cvars.get('sv_adminnick') or ''
         self.send('sv_adminnick "%s"' % new_nick)
         yield
         self.send('sv_adminnick "%s"' % old_nick)
@@ -124,20 +120,24 @@ class RconClient:
         else:
             return True
 
+    def custom_cmd_callback(self, data, addr):
+        pass
+
     def cmd_data_received(self, data, addr):
         if not self.verify_data(data, addr):
             return
         self.cmd_timestamp = time.time()
-        if self.custom_cmd_callback:
-            self.custom_cmd_callback(data, addr)
+        self.custom_cmd_callback(data, addr)
         self.cmd_parser.feed(data)
+
+    def custom_log_callback(self, data, addr):
+        pass
 
     def log_data_received(self, data, addr):
         if not self.verify_data(data, addr):
             return
         self.log_timestamp = time.time()
-        if self.custom_log_callback:
-            self.custom_log_callback(data, addr)
+        self.custom_log_callback(data, addr)
         self.log_parser.feed(data)
 
     async def load_completions(self):
