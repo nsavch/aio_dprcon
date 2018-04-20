@@ -97,6 +97,7 @@ class RconClient:
 
     async def update_server_status(self):
         try:
+            self.status = {}
             await self.execute_with_retry('status 1', lambda: 'players' in self.status)
         except RconCommandFailed:
             return False
